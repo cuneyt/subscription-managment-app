@@ -11,7 +11,6 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::get('/test', [RegisterDeviceController::class, 'create'])->name('createe');
 Route::get('/register', [RegisterDeviceController::class, 'create'])->name('createe');
 Route::get("/purchase", [MainPaymentController::class, 'paymentprocessrs'])->name("process");
 Route::post("/googleverification", [GoogleVerificationController::class, 'verificationprocess'])->name("verificationprocessa");
