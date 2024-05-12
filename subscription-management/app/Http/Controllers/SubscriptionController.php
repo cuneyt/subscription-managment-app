@@ -152,8 +152,7 @@ class SubscriptionController extends Controller
             $appsecret = $appdata->pass;
             $receipt = "asdasdasd4546541";
 
-            echo $receipt;
-            echo "<br>".$appid;
+
             $url = 'http://localhost:8181/api/googleverification';
             $response = Http::withBasicAuth($appclient, $appsecret)->post($url, ['receipt' => $receipt, 'app' => $appid]);
             $json = json_decode($response->getBody()->getContents());

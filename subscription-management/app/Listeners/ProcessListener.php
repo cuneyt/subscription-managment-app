@@ -27,9 +27,7 @@ class ProcessListener
      */
     public function handle(SubscriptionStatusChanged $event): void
     {
-        //Redis::set("ALOEKLENDİ","ALOTAMAM");
-
-    //    $hook = $this->eventHookeRepository->get();
+        //$hook = $this->eventHookeRepository->get();
 
         $endpointurl = "http://localhost:8181/api/eventChange";
 
