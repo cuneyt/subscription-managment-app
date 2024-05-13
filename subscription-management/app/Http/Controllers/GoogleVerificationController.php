@@ -34,10 +34,6 @@ class GoogleVerificationController extends Controller
     }
 
     public function verificationprocess(Request $data){
-        /*if($data->uid && $this->checkRedisUid($data->uid)){
-            return response()->json($this->checkRedisUid($data->uid),200);
-        }*/
-
         $validator = Validator::make($data->all(), [
             'receipt' => 'required|string',
             'app' => 'required|integer'
@@ -92,10 +88,5 @@ class GoogleVerificationController extends Controller
         $formattedDate = $dateTime->format('Y-m-d H:i:s');
         return $formattedDate;
     }
-
-    /*$devicedata = $this->registerDevice->findBy("client-token",$clienttoken);
-    event(new SubscriptionStatusChanged($devicedata->appId, $devicedata->_id, "started"));*/
-
-
 
 }

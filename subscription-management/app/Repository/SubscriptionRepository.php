@@ -17,10 +17,10 @@ class SubscriptionRepository implements SubscriptionRepositoryInterface
 
     public function update(int $uid, int $appid)
     {
-        $after10min= date("Y-m-d H:i:s", strtotime("+10 minutes"));
+        $after60min= date("Y-m-d H:i:s", strtotime("+60 minutes"));
         return Subscription::where('uid', $uid)
             ->where('appid', $appid)
-            ->update(['expired_date' => $after10min, 'substatus' => true]);
+            ->update(['expired_date' => $after60min, 'substatus' => true]);
     }
 
     public function canceled(int $uid, int $appid)

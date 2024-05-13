@@ -13,10 +13,12 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/register', [RegisterDeviceController::class, 'create'])->name('createe');
 Route::get("/purchase", [MainPaymentController::class, 'paymentprocessrs'])->name("process");
+Route::get("/renewed", [MainPaymentController::class, 'renewed'])->name("renewed");
+Route::get("/canceled", [MainPaymentController::class, 'paymentprocessrs'])->name("process");
 Route::post("/googleverification", [GoogleVerificationController::class, 'verificationprocess'])->name("verificationprocessa");
 Route::post("/eventChange", [SubscriptionController::class, 'process'])->name("eventProcess");
 Route::post("/checksubscription", [SubscriptionController::class, 'checksubs'])->name("checksubsc");
-Route::get("/crontest", [SubscriptionController::class, 'CronTest'])->name("crontestq");
+Route::get("/worker", [SubscriptionController::class, 'worker'])->name("worker");
 
 Route::fallback(function () {
     return response()->json(['message' => 'Not Found.'], 404);

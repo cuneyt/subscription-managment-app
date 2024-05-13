@@ -35,7 +35,7 @@ class MainPaymentController
             return response()->json(["status"=>false,"message"=>"Doğru isteklerle ulaşılamadı!"],200);
         }
 
-        $receipt = hash('sha256', $data['receipt']).rand(0,100);;
+        $receipt = hash('sha256', $data['receipt'].rand()).rand(0,100);;
         $clienttoken = $data['client-token'];
 
         $uid_redis = $this->checkRedisClientToken($clienttoken);
@@ -74,10 +74,69 @@ class MainPaymentController
 
     }
 
+    public function renewed(Request $data){
+        $validator = Validator::make($data->all(), [
+            'client-token' => 'required|string',
+            'receipt' => 'required|string'
+        ]);
+        if ($validator->fails()) {
+            return response()->json(["status"=>false,"message"=>"Doğru isteklerle ulaşılamadı!"],200);
+        }
+
+        $receipt = hash('sha256', $data['receipt'].rand()).rand(0,100);;
+        $clienttoken = $data['client-token'];
+
+        $uid_redis = $this->checkRedisClientToken($clienttoken);
+        if(!$uid_redis){
+            $uid_db = $this->checkDbClientToken($clienttoken);
+            if(!$uid_db){
+                return response()->json(["status"=>false,"message"=>"Client token'a ait veri bulunamadı"],400);
+            }
+        }
+
+        $substatus_redis = $this->checkRedisSubStatus($clienttoken);
+        if(!$substatus_redis[0]) {
+            $uid_db = $this->checkDbClientToken($clienttoken);
+            $uid=$uid_db->uid;
+            $appid=$uid_db->AppId;
+            $substatus_db = $this->checkDbSubStatus($uid,$appid);
+            if(!$substatus_db){
+                return response()->json(["status" => false, "message" => "Aboneliğiniz mevcut değil, önce abonelik satın almanız gerekiyor."], 200);
+            }
+        }
+
+
+        $devicedata = $this->checkDbClientToken($clienttoken);
+        $appid = $devicedata->AppId;
+        $uid = $devicedata->uid;
+
+        $uid_rediskey = "process_uid_{$uid}";
+        Redis::set($uid_rediskey,$clienttoken, 'EX', 120);
+
+        $appdata = $this->application->find($appid);
+        $appclient = $appdata->uname;
+        $appsecret = $appdata->pass;
+
+        $url = 'http://localhost:8181/api/googleverification';
+        $response = Http::withBasicAuth($appclient, $appsecret)->post($url, ['receipt' => $receipt, 'app' => $appid]);
+        $json = json_decode($response->getBody()->getContents());
+        if($json->status){
+            event(new SubscriptionStatusChanged($appid,$uid,"renewed"));
+            return response()->json(["status"=>true,"message"=>"Aboneliğiniz uzatıldı"]);
+        }else{
+            return response()->json(["status"=>false,"message"=>"Giriş Sağlanamadı","receipt"=>$receipt]);
+        }
+
+    }
+
 
 
     protected function checkRedisSubStatus(string $clienttoken){
         return Redis::hmget($clienttoken,"substatus");
+    }
+
+    protected function checkDbSubStatus(int $uid, int $appid){
+        return $this->subscription->findBy($uid,$appid);
     }
 
     protected function checkRedisClientToken(string $clienttoken){

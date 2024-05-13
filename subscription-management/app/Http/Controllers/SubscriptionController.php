@@ -43,11 +43,11 @@ class SubscriptionController extends Controller
             $uid_keyredis = "process_uid_{$uid}";
             $clienttoken = Redis::get($uid_keyredis);
 
-            $dateafter10min = date("Y-m-d H:i:s");
+            $dateafter60min = date("Y-m-d H:i:s", strtotime("+60 minutes"));
             $data=[
                 "appid"=>$appid,
                 "uid"=>$uid,
-                "expired_date"=>$dateafter10min,
+                "expired_date"=>$dateafter60min,
                 "substatus"=>true,
             ];
             $subcreate = $this->subscription->create($data);
@@ -61,8 +61,12 @@ class SubscriptionController extends Controller
         }
 
         if($data['event'] == "renewed"){
+            $uid_keyredis = "process_uid_{$uid}";
+            $clienttoken = Redis::get($uid_keyredis);
             $subcreate = $this->subscription->update($uid,$appid); //renewed
             if($subcreate){
+                $udata = ['substatus' => '1'];
+                Redis::hmset($clienttoken,$udata);
                 return response()->json(["status"=>true,"message"=>"event successful"],200);
             }else{
                 return response()->json(["status"=>false,"message"=>"event wrong"],401);
@@ -107,7 +111,6 @@ class SubscriptionController extends Controller
         }
 
         $substatus_db=$this->checkDbSubStatus($clienttoken);
-
         if($substatus_db){
             if ($substatus_db == 1){
                 $substatus = true;
@@ -140,9 +143,9 @@ class SubscriptionController extends Controller
     }
 
 
-    public function CronTest(Request $data){
-        $dateafter10min = date("Y-m-d H:i:s", strtotime("-50 minutes"));
-        $resp = $this->subscription->getExpiredData($dateafter10min);
+    public function worker(Request $data){
+        $dateafter1min = date("Y-m-d H:i:s", strtotime("-1 minutes"));
+        $resp = $this->subscription->getExpiredData($dateafter1min);
         foreach ($resp as $key => $value){
 
             $appid=$value->appid;
@@ -150,7 +153,8 @@ class SubscriptionController extends Controller
             $appdata = $this->application->find($appid);
             $appclient = $appdata->uname;
             $appsecret = $appdata->pass;
-            $receipt = "asdasdasd4546541";
+            $receipt = "1";
+            //$receipt = hash('sha256', $data['receipt'].rand()).rand(0,100);;
 
 
             $url = 'http://localhost:8181/api/googleverification';

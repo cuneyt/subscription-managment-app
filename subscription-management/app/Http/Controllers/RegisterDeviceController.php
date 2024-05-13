@@ -23,7 +23,7 @@ class RegisterDeviceController extends Controller
     public function create(Request $data){
 
         $validator = Validator::make($data->all(), [
-            'uid' => 'nullable|integer',
+            'uid' => 'required|integer',
             'AppId' => 'required|integer',
             'os' => 'required|string|max:20',
             'language' => 'required|string|max:50',

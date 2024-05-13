@@ -36,7 +36,7 @@ Projeyi çalıştırmak için Docker gereklidir. İlgili teknolojileri Docker ü
 
 **Gerekli Parametreler:**
 
-- `uid` (String): Cihazın eşsiz kimlik numarası.
+- `uid` (Integer): Cihazın eşsiz kimlik numarası.
 - `AppId` (Integer): Uygulama kimliği, her bir uygulamaya ait cihazlar için kullanılır.
 - `os` (String): Cihazın işletim sistemi. Örnek: "Apple".
 - `language` (String): Cihazın dili. Örnek: "Tr".
