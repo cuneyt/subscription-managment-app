@@ -143,8 +143,9 @@ class SubscriptionController extends Controller
     }
 
 
-    public function worker(Request $data){
+    public function worker(){
         $resp = $this->subscription->getExpiredData();
+        $result=array();
         foreach ($resp as $key => $value){
 
             $appid=$value->appid;
@@ -152,20 +153,22 @@ class SubscriptionController extends Controller
             $appdata = $this->application->find($appid);
             $appclient = $appdata->uname;
             $appsecret = $appdata->pass;
-            $receipt = "1";
+            $receipt = "1"; // tek sayı gönderiyorum çünkü tüm kayıtların pasif edilmesini istiyorum tekrar google verification yapılmasını istemiyorum.
             //$receipt = hash('sha256', $data['receipt'].rand()).rand(0,100);;
-
 
             $url = 'http://localhost:8181/api/googleverification';
             $response = Http::withBasicAuth($appclient, $appsecret)->post($url, ['receipt' => $receipt, 'app' => $appid]);
             $json = json_decode($response->getBody()->getContents());
             if($json->status){
                 event(new SubscriptionStatusChanged($appid,$uid,"renewed"));
-                return response()->json(["status"=>true,"message"=>"Subscription renewed"]);
+                $result[$key] = ["uid"=>"$uid", "appid" => $appid, "message"=>"başarılı"];
             }else{
-                return response()->json(["status"=>false,"message"=>"auth failed"]);
+                $result[$key] = ["uid"=>"$uid", "appid" => $appid, "message"=>"başarısız"];
             }
-
         }
+        if($result){
+            return response()->json(["status"=>true,"message"=>$result]);
+        }
+        return response()->json(["status"=>false,"message"=>"aktif kayıt bulunmamaktadır."]);
     }
 }

@@ -112,7 +112,6 @@ class MainPaymentController
 
         $uid_rediskey = "process_uid_{$uid}";
         Redis::set($uid_rediskey,$clienttoken, 'EX', 120);
-        Redis::set("tete","aaa", 'EX', 120);
 
         $appdata = $this->application->find($appid);
         $appclient = $appdata->uname;
