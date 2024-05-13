@@ -39,52 +39,52 @@ class SubscriptionController extends Controller
         $appid=$data['appid'];
         $uid=$data['uid'];
 
-        if($data['event'] == "started"){
-            $uid_keyredis = "process_uid_{$uid}";
-            $clienttoken = Redis::get($uid_keyredis);
+        $uid_keyredis = "process_uid_{$uid}";
+        $clienttoken = Redis::get($uid_keyredis);
 
-            $dateafter60min = date("Y-m-d H:i:s", strtotime("+60 minutes"));
-            $data=[
-                "appid"=>$appid,
-                "uid"=>$uid,
-                "expired_date"=>$dateafter60min,
-                "substatus"=>true,
-            ];
-            $subcreate = $this->subscription->create($data);
-            if($subcreate){
-                $udata = ['substatus' => $subcreate->substatus];
-                Redis::hmset($clienttoken,$udata);
-                return response()->json(["status"=>true,"message"=>"event successful"],200);
-            }else{
-                return response()->json(["status"=>false,"message"=>"event wrong"],401);
-            }
-        }
+        switch ($data['event']) {
+            case "started":
+                $dateafter60min = date("Y-m-d H:i:s", strtotime("+60 minutes"));
+                $data = [
+                    "appid" => $appid,
+                    "uid" => $uid,
+                    "expired_date" => $dateafter60min,
+                    "substatus" => true,
+                ];
+                $subcreate = $this->subscription->create($data);
+                if ($subcreate) {
+                    $udata = ['substatus' => $subcreate->substatus];
+                    Redis::hmset($clienttoken, $udata);
+                    return response()->json(["status" => true, "message" => "event successful"], 200);
+                } else {
+                    return response()->json(["status" => false, "message" => "event wrong"], 401);
+                }
+                break;
 
-        if($data['event'] == "renewed"){
-            $uid_keyredis = "process_uid_{$uid}";
-            $clienttoken = Redis::get($uid_keyredis);
-            $subcreate = $this->subscription->update($uid,$appid); //renewed
-            if($subcreate){
-                $udata = ['substatus' => '1'];
-                Redis::hmset($clienttoken,$udata);
-                return response()->json(["status"=>true,"message"=>"event successful"],200);
-            }else{
-                return response()->json(["status"=>false,"message"=>"event wrong"],401);
-            }
-        }
+            case "renewed":
+                $subcreate = $this->subscription->update($uid, $appid); //renewed
+                if ($subcreate) {
+                    $udata = ['substatus' => '1'];
+                    Redis::hmset($clienttoken, $udata);
+                    return response()->json(["status" => true, "message" => "event successful"], 200);
+                } else {
+                    return response()->json(["status" => false, "message" => "event wrong"], 401);
+                }
+                break;
 
-        if($data['event'] == "canceled"){
+            case "canceled":
+                $subcanceled = $this->subscription->canceled($uid, $appid); //canceled
+                if ($subcanceled) {
+                    $udata = ['substatus' => 0];
+                    Redis::hmset($clienttoken, $udata);
+                    return response()->json(["status" => true, "message" => "event successful"], 200);
+                } else {
+                    return response()->json(["status" => false, "message" => "event wrong"], 401);
+                }
+                break;
 
-            $uid_keyredis = "process_uid_{$uid}";
-            $clienttoken = Redis::get($uid_keyredis);
-            $subcanceled = $this->subscription->canceled($uid,$appid); //canceled
-            if($subcanceled){
-                $udata = ['substatus' => 0];
-                Redis::hmset($clienttoken,$udata);
-                return response()->json(["status"=>true,"message"=>"event successful"],200);
-            }else{
-                return response()->json(["status"=>false,"message"=>"event wrong"],401);
-            }
+            default:
+                return response()->json(["status" => false, "message" => "unknown event"], 400);
         }
 
     }
@@ -144,8 +144,7 @@ class SubscriptionController extends Controller
 
 
     public function worker(Request $data){
-        $dateafter1min = date("Y-m-d H:i:s", strtotime("-1 minutes"));
-        $resp = $this->subscription->getExpiredData($dateafter1min);
+        $resp = $this->subscription->getExpiredData();
         foreach ($resp as $key => $value){
 
             $appid=$value->appid;

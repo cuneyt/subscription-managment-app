@@ -45,7 +45,18 @@ Projeyi çalıştırmak için Docker gereklidir. İlgili teknolojileri Docker ü
 
 **Endpoint:** `/purchase`
 
-**Açıklama:** Sistemdeki bir uygulama için satın alma işlemi yapar.
+**Açıklama:** Sistemdeki bir uygulama için satın alma işlemi yapar. Satın alma işlemi için gönderilen receipt değeri hash'lenerek son karakteri tek sayı ise satın alma olumlu sonuçlanır, çift sayı ise Giriş Sağlanamadı hatası döner. 
+
+**Gerekli Parametreler:**
+
+- `client-token` (String): `/register` endpoint'inden elde edilen token.
+- `receipt` (String): Satın alma işlemini gerçekleştiren string değeri.
+
+### Aboneliği Uzatma
+
+**Endpoint:** `/renewed`
+
+**Açıklama:** Abonelik expired-date'ini 240 dakika olarak artırır ve abonelik durumunu true olarak işaretler.
 
 **Gerekli Parametreler:**
 
@@ -61,6 +72,12 @@ Projeyi çalıştırmak için Docker gereklidir. İlgili teknolojileri Docker ü
 **Gerekli Parametreler:**
 
 - `client-token` (String): `/register` endpoint'inden elde edilen token.
+
+### Abonelikleri Sonlandırma
+
+**Endpoint:** `/worker`
+
+**Açıklama:** Bu endpoint'e herhangi bir değer göndermenize gerek yoktur, istek atıldığı zaman aktif aboneliklerin expired-date'lerine bakar ve eğer geçmiş zamana ait bir abonelik bulursa bunu iptal eder.
 
 
 ![Docker Logo](https://www.docker.com/wp-content/uploads/2023/08/logo-guide-logos-1.svg)  

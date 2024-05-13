@@ -17,7 +17,7 @@ class SubscriptionRepository implements SubscriptionRepositoryInterface
 
     public function update(int $uid, int $appid)
     {
-        $after60min= date("Y-m-d H:i:s", strtotime("+60 minutes"));
+        $after60min= date("Y-m-d H:i:s", strtotime("+240 minutes"));
         return Subscription::where('uid', $uid)
             ->where('appid', $appid)
             ->update(['expired_date' => $after60min, 'substatus' => true]);
@@ -32,8 +32,9 @@ class SubscriptionRepository implements SubscriptionRepositoryInterface
             ->update(['substatus' => false]);
     }
 
-    public function getExpiredData(String $date)
+    public function getExpiredData()
     {
-        return Subscription::where('expired_date','<=',$date)->get();
+        $dateafter1min = date("Y-m-d H:i:s", strtotime("-1 minutes"));
+        return Subscription::where('expired_date','<=',$dateafter1min)->get();
     }
 }
