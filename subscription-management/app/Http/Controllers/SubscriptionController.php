@@ -142,7 +142,6 @@ class SubscriptionController extends Controller
         return Redis::hmget($clienttoken,"substatus");
     }
 
-
     public function worker(){
         $resp = $this->subscription->getExpiredData();
         $result=array();

@@ -77,7 +77,7 @@ Projeyi çalıştırmak için Docker gereklidir. İlgili teknolojileri Docker ü
 
 **Endpoint:** `/worker`
 
-**Açıklama:** Bu endpoint'e herhangi bir değer göndermenize gerek yoktur, istek atıldığı zaman aktif aboneliklerin expired-date'lerine bakar ve eğer geçmiş zamana ait bir abonelik bulursa bunu iptal eder.
+**Açıklama:** Bu endpoint'e herhangi bir değer göndermenize gerek yoktur, istek atıldığı zaman aktif aboneliklerin expired-date'lerine bakar ve eğer geçmiş zamana ait bir abonelik bulursa bunu iptal eder. Bu endpoint'e her 30 dakikada bir cronjob isteği atılmaktadır. 
 
 
 ![Docker Logo](https://www.docker.com/wp-content/uploads/2023/08/logo-guide-logos-1.svg)  
