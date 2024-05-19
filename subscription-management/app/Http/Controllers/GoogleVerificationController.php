@@ -18,75 +18,59 @@ class GoogleVerificationController extends Controller
 
     public function __construct(MobAppRepository $application)
     {
-        $this->application= $application;
+        $this->application = $application;
     }
 
-    private function paymenthashcalc(String $hash)
+    private function paymentHashCalc(string $hash): bool
     {
-        $hashlastchar= substr($hash,-1);
-        $hashcalc = $hashlastchar % 2;
-
-        if($hashcalc == 0){
-            return false;
-        }else{
-            return true;
-        }
+        $hashLastChar = substr($hash, -1);
+        return $hashLastChar % 2 !== 0;
     }
 
-    public function verificationprocess(Request $data){
+    private function authenticate(Request $data, $appdata): bool
+    {
+        $authHeader = $data->header('Authorization');
+
+        if ($authHeader && strpos($authHeader, 'Basic ') === 0) {
+            $encodedCredentials = substr($authHeader, 6);
+            $decodedCredentials = base64_decode($encodedCredentials);
+            list($username, $password) = explode(':', $decodedCredentials, 2);
+
+            return $username === $appdata->uname && $password === $appdata->pass;
+        }
+
+        return false;
+    }
+
+    public function verificationProcess(Request $data)
+    {
         $validator = Validator::make($data->all(), [
             'receipt' => 'required|string',
             'app' => 'required|integer'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(["status"=>false,"message"=>"Doğru isteklerle ulaşılamadı!"],200);
+            return response()->json(["status" => false, "message" => "Doğru isteklerle ulaşılamadı!"], 200);
         }
-
-        $authHeader = $data->header('Authorization');
 
         $appdata = $this->application->find($data->app);
-        $uname = $appdata->uname;
-        $upass = $appdata->pass;
 
-        if ($authHeader && strpos($authHeader, 'Basic ') === 0) {
-            $encodedCredentials = substr($authHeader, 6);
-            $decodedCredentials = base64_decode($encodedCredentials);
-
-            // Kullanıcı adı ve parolayı `username:password` formatında alalım
-            list($username, $password) = explode(':', $decodedCredentials, 2);
-
-
-            if ($username != $uname || $password != $upass) {
-
-                return response()->json(["status"=>false,'message' => 'Authenticated failed',],401);
-            }
-        }else{
-            echo "hata";
+        if (!$this->authenticate($data, $appdata)) {
+            return response()->json(["status" => false, 'message' => 'Authentication failed'], 401);
         }
 
-        $receipt=$data->receipt;
+        $receiptStatus = $this->paymentHashCalc($data->receipt);
+        $date = $this->getCurrentTime();
 
-        $receiptStatus = $this->paymenthashcalc($receipt);
-        $date = $this->timezone();
-        if($receiptStatus){
-            return response()->json(["status"=>true,"date"=>$date]);
-        }else{
-            return response()->json(["status"=>false,"date"=>$date]);
-        }
+        return response()->json(["status" => $receiptStatus, "date" => $date]);
     }
 
-    protected function checkRedisClientToken(int $uid){
-        $redisKey = "uid_{$uid}";
-        return Redis::get($redisKey);
-    }
-
-    protected function timezone(){
+    protected function getCurrentTime(): string
+    {
         $timezoneName = timezone_name_from_abbr('', -6 * 3600, 0);
         $utcMinus6 = new DateTimeZone($timezoneName);
         $dateTime = new DateTime('now', $utcMinus6);
-        $formattedDate = $dateTime->format('Y-m-d H:i:s');
-        return $formattedDate;
+        return $dateTime->format('Y-m-d H:i:s');
     }
-
 }
+

@@ -13,10 +13,10 @@ use Illuminate\Support\Facades\Validator;
 
 class SubscriptionController extends Controller
 {
-
     protected $subscription;
     protected $device;
     protected $application;
+
     public function __construct(SubscriptionRepository $subscription, DeviceRepository $device, MobAppRepository $application)
     {
         $this->subscription = $subscription;
@@ -24,8 +24,8 @@ class SubscriptionController extends Controller
         $this->application = $application;
     }
 
-    public function process(Request $data){
-
+    public function process(Request $data)
+    {
         $validator = Validator::make($data->all(), [
             'appid' => 'required|integer',
             'uid' => 'required|integer', // deviceId
@@ -33,141 +33,136 @@ class SubscriptionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(["status"=>false,"message"=>"Doğru isteklerle ulaşılamadı!"],200);
+            return response()->json(["status" => false, "message" => "Doğru isteklerle ulaşılamadı!"], 200);
         }
 
-        $appid=$data['appid'];
-        $uid=$data['uid'];
+        $appid = $data['appid'];
+        $uid = $data['uid'];
 
-        $uid_keyredis = "process_uid_{$uid}";
-        $clienttoken = Redis::get($uid_keyredis);
+        $clienttoken = Redis::get("process_uid_{$uid}");
 
         switch ($data['event']) {
             case "started":
-                $dateafter60min = date("Y-m-d H:i:s", strtotime("+60 minutes"));
-                $data = [
-                    "appid" => $appid,
-                    "uid" => $uid,
-                    "expired_date" => $dateafter60min,
-                    "substatus" => true,
-                ];
-                $subcreate = $this->subscription->create($data);
-                if ($subcreate) {
-                    $udata = ['substatus' => $subcreate->substatus];
-                    Redis::hmset($clienttoken, $udata);
-                    return response()->json(["status" => true, "message" => "event successful"], 200);
-                } else {
-                    return response()->json(["status" => false, "message" => "event wrong"], 401);
-                }
-                break;
-
+                return $this->handleStartedEvent($appid, $uid, $clienttoken);
             case "renewed":
-                $subcreate = $this->subscription->update($uid, $appid); //renewed
-                if ($subcreate) {
-                    $udata = ['substatus' => '1'];
-                    Redis::hmset($clienttoken, $udata);
-                    return response()->json(["status" => true, "message" => "event successful"], 200);
-                } else {
-                    return response()->json(["status" => false, "message" => "event wrong"], 401);
-                }
-                break;
-
+                return $this->handleRenewedEvent($appid, $uid, $clienttoken);
             case "canceled":
-                $subcanceled = $this->subscription->canceled($uid, $appid); //canceled
-                if ($subcanceled) {
-                    $udata = ['substatus' => 0];
-                    Redis::hmset($clienttoken, $udata);
-                    return response()->json(["status" => true, "message" => "event successful"], 200);
-                } else {
-                    return response()->json(["status" => false, "message" => "event wrong"], 401);
-                }
-                break;
-
+                return $this->handleCanceledEvent($appid, $uid, $clienttoken);
             default:
                 return response()->json(["status" => false, "message" => "unknown event"], 400);
         }
-
     }
 
-    public function checksubs(Request $data){
+    private function handleStartedEvent($appid, $uid, $clienttoken)
+    {
+        $dateAfter60Min = date("Y-m-d H:i:s", strtotime("+60 minutes"));
+        $data = [
+            "appid" => $appid,
+            "uid" => $uid,
+            "expired_date" => $dateAfter60Min,
+            "substatus" => true,
+        ];
+        $subCreate = $this->subscription->create($data);
+        return $this->handleEventResponse($subCreate, $clienttoken, true);
+    }
+
+    private function handleRenewedEvent($appid, $uid, $clienttoken)
+    {
+        $subCreate = $this->subscription->update($uid, $appid); // renewed
+        return $this->handleEventResponse($subCreate, $clienttoken, true);
+    }
+
+    private function handleCanceledEvent($appid, $uid, $clienttoken)
+    {
+        $subCanceled = $this->subscription->canceled($uid, $appid); // canceled
+        return $this->handleEventResponse($subCanceled, $clienttoken, false);
+    }
+
+    private function handleEventResponse($subCreate, $clienttoken, $status)
+    {
+        if ($subCreate) {
+            $udata = ['substatus' => $status];
+            Redis::hmset($clienttoken, $udata);
+            return response()->json(["status" => true, "message" => "event successful"], 200);
+        } else {
+            return response()->json(["status" => false, "message" => "event wrong"], 401);
+        }
+    }
+
+    public function checksubs(Request $data)
+    {
         $validator = Validator::make($data->all(), [
             'client-token' => 'required|string',
         ]);
+
         if ($validator->fails()) {
-            return response()->json(["status"=>false,"message"=>"Doğru isteklerle ulaşılamadı!"],200);
+            return response()->json(["status" => false, "message" => "Doğru isteklerle ulaşılamadı!"], 200);
         }
+
         $clienttoken = $data['client-token'];
+        $substatusRedis = $this->checkRedisSubStatus($clienttoken);
+        $substatusCheck = $substatusRedis[0];
 
-        $substatus_redis = $this->checkRedisSubStatus($clienttoken);
-        $substatus_check=$substatus_redis[0];
-        $substatus_check=null;
-        if($substatus_check!=null) {
-            if ($substatus_check == 1){
-                $substatus = true;
-            }else{
-                $substatus = false;
-            }
-            return response()->json(["status"=>true,"substatus"=>$substatus,"message"=>"Subscrition status"],200);
+        if ($substatusCheck !== null) {
+            $substatus = $substatusCheck == 1;
+            return response()->json(["status" => true, "substatus" => $substatus, "message" => "Subscription status"], 200);
         }
 
-        $substatus_db=$this->checkDbSubStatus($clienttoken);
-        if($substatus_db){
-            if ($substatus_db == 1){
-                $substatus = true;
-            }else{
-                $substatus = false;
-            }
-            return response()->json(["status"=>true,"substatus"=>$substatus,"message"=>"Subscrition status"],200);
+        $substatusDb = $this->checkDbSubStatus($clienttoken);
+        if ($substatusDb) {
+            $substatus = $substatusDb == 1;
+            return response()->json(["status" => true, "substatus" => $substatus, "message" => "Subscription status"], 200);
         }
-        return response()->json(["status"=>false,"message"=>"Subscrition not found"],200);
+
+        return response()->json(["status" => false, "message" => "Subscription not found"], 200);
     }
 
-    protected function checkDbSubStatus(string $clienttoken){
-        $udata = $this->device->findBy("client-token",$clienttoken);
-        $appid=$udata->AppId;
-        $uid=$udata->uid;
+    protected function checkDbSubStatus(string $clienttoken)
+    {
+        $udata = $this->device->findBy("client-token", $clienttoken);
+        $appid = $udata->AppId;
+        $uid = $udata->uid;
 
-        $subdata = $this->subscription->findBy($uid,$appid);
-        if($subdata){
-            if($subdata->substatus){
-                return "1";
-            }else{
-                return "2";
-            }
+        $subdata = $this->subscription->findBy($uid, $appid);
+        if ($subdata) {
+            return $subdata->substatus ? "1" : "2";
         }
         return false;
     }
 
-    protected function checkRedisSubStatus(string $clienttoken){
-        return Redis::hmget($clienttoken,"substatus");
+    protected function checkRedisSubStatus(string $clienttoken)
+    {
+        return Redis::hmget($clienttoken, "substatus");
     }
 
-    public function worker(){
+    public function worker()
+    {
         $resp = $this->subscription->getExpiredData();
-        $result=array();
-        foreach ($resp as $key => $value){
+        $result = [];
 
-            $appid=$value->appid;
-            $uid=$value->uid;
+        foreach ($resp as $key => $value) {
+            $appid = $value->appid;
+            $uid = $value->uid;
             $appdata = $this->application->find($appid);
             $appclient = $appdata->uname;
             $appsecret = $appdata->pass;
-            $receipt = "1"; // tek sayı gönderiyorum çünkü tüm kayıtların pasif edilmesini istiyorum tekrar google verification yapılmasını istemiyorum.
-            //$receipt = hash('sha256', $data['receipt'].rand()).rand(0,100);;
+            $receipt = "1"; // Tek sayı gönderiyorum çünkü tüm kayıtların pasif edilmesini istiyorum, tekrar Google verification yapılmasını istemiyorum.
 
             $url = 'http://localhost:8181/api/googleverification';
             $response = Http::withBasicAuth($appclient, $appsecret)->post($url, ['receipt' => $receipt, 'app' => $appid]);
             $json = json_decode($response->getBody()->getContents());
-            if($json->status){
-                event(new SubscriptionStatusChanged($appid,$uid,"renewed"));
-                $result[$key] = ["uid"=>"$uid", "appid" => $appid, "message"=>"başarılı"];
-            }else{
-                $result[$key] = ["uid"=>"$uid", "appid" => $appid, "message"=>"başarısız"];
+
+            if ($json->status) {
+                event(new SubscriptionStatusChanged($appid, $uid, "renewed"));
+                $result[$key] = ["uid" => $uid, "appid" => $appid, "message" => "başarılı"];
+            } else {
+                $result[$key] = ["uid" => $uid, "appid" => $appid, "message" => "başarısız"];
             }
         }
-        if($result){
-            return response()->json(["status"=>true,"message"=>$result]);
+
+        if ($result) {
+            return response()->json(["status" => true, "message" => $result]);
         }
-        return response()->json(["status"=>false,"message"=>"aktif kayıt bulunmamaktadır."]);
+        return response()->json(["status" => false, "message" => "aktif kayıt bulunmamaktadır."]);
     }
 }
